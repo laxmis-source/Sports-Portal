@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import logoFull from '../assets/logo-full.jpg';
 
 export default function Login() {
@@ -20,28 +21,25 @@ export default function Login() {
     setLoading(true);
     setError('');
     const { data, error: err } = await signIn(form.email, form.password);
+    setLoading(false);
     if (err) {
-      setLoading(false);
       return setError(err.message);
     }
-    const userId = data?.user?.id;
-    if (userId) {
-      const { data: prof } = await supabase.from('profiles').select('role').eq('id', userId).single();
-      setLoading(false);
-      if (prof?.role === 'admin') {
-        navigate('/admin');
-        return;
-      }
+    // Use role from user_metadata (set during registration)
+    const role = data?.user?.user_metadata?.role;
+    if (role === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/');
     }
-    setLoading(false);
-    navigate('/');
   };
 
   const handleRegister = async e => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { data, error: err } = await signUp(form.email, form.password, form.full_name, form.role);
+    // Students always register with 'student' role
+    const { data, error: err } = await signUp(form.email, form.password, form.full_name, 'student');
     if (err) {
       setLoading(false);
       return setError(err.message);
@@ -53,7 +51,7 @@ export default function Login() {
           id: data.user.id,
           email: form.email,
           full_name: form.full_name,
-          role: form.role,
+          role: 'student',
         });
       } catch {
         // Trigger already handles it
@@ -111,13 +109,7 @@ export default function Login() {
               <label>Password</label>
               <input name="password" type="password" required minLength={6} value={form.password} onChange={handleChange} placeholder="Min 6 characters" />
             </div>
-            <div className="form-group">
-              <label>Role</label>
-              <select name="role" value={form.role} onChange={handleChange}>
-                <option value="student">Student</option>
-                <option value="admin">Faculty / Admin</option>
-              </select>
-            </div>
+
             <button type="submit" className="btn btn-primary btn-lg auth-btn" disabled={loading}>
               {loading ? 'Registering...' : 'Create Account'}
             </button>
